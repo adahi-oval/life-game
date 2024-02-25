@@ -1,36 +1,26 @@
-#pragma once
+#include <utility> // Para utilizar std::pair
 
-#include <vector>
-#include <iostream>
+// Definición del tipo de dato para la posición
+using Position = std::pair<int, int>;
+// Definición del tipo de dato para el estado
+using State = bool;
 
-// Definiciones de tipos
-using Position = int; // Tipo de dato para la posición dentro del retículo
-using State = bool;   // Tipo de dato para el estado binario de la célula
-
-// Declaración adelantada de la clase Lattice
-class Lattice;
-
-// Declaración de la clase Cell
+// Definición de la clase Cell
 class Cell {
 public:
-  // Constructor
-  Cell(const Position& position, const State& initialState = false);
 
-  // Métodos
-  State getState() const; // Método para obtener el estado de la célula
-  State getNextState() const;
-  void setState(State newState); // Método para establecer el estado de la célula
-  void setNextState(State newState);
-  void nextState(const Lattice& lattice); // Método para calcular el siguiente estado de la célula
-  void updateState(); // Método para actualizar el estado de la célula
-  const State transitionFunction(const State& C, const State& L, const State& R) const;
-  std::vector<State> getNeighbors(const Lattice& lattice) const;
+  // Constructor de la célula
+  Cell(const Position& pos, const State& state);
 
-  // Operador de inserción en flujo para la clase Cell
-  friend std::ostream& operator<<(std::ostream& os, const Cell& cell);
+  // getter y setter de estado
+  const State getState() const;
+  void setState(State newState);
+
+  // getter y setter de posicion
+  const Position getPosition() const;
+  void setPosition(int row, int col);
 
 private:
-  Position position_; // Posición dentro del retículo
-  State state_;       // Estado actual de la célula
-  State nextState_;   // Estado siguiente de la célula
+  Position position_; // Posición de la célula en el retículo
+  State state_;       // Estado de la célula
 };

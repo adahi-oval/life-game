@@ -1,36 +1,39 @@
-#pragma once
-
-#include <vector>
 #include <iostream>
-#include "cell.h"
+#include "cell.h" // Incluir el archivo de encabezado de la clase Cell
+#include <vector>
+#include <utility> // Para utilizar std::pair
+#include <algorithm> // Para std::find
 
-// Declaración adelantada de la clase Cell
-class Cell;
-
-// Declaración de la clase Lattice
+// Definición de la clase Lattice
 class Lattice {
 public:
-  // Constructor
-  Lattice(int size, std::string frontera);
+    // Constructor que crea las células en memoria dinámica con valor inicial de estado muerta
+    Lattice(int N, int M);
+    Lattice(const char* filename);
 
-  // Destructor
-  ~Lattice();
+    // Destructor para liberar la memoria de las células
+    ~Lattice();
 
-  int getSize() const;
-  std::string getFrontera() const;
+    std::string getFrontera() const;
+    void setFrontera(const std::string& frontera);
 
-  // Método para obtener una referencia constante a una célula en una posición específica
-  const Cell& getCell(const Position& position) const;
+    // Pedir celulas vivas
+    void askForLiveCells();
 
-  // Método para cargar la configuración inicial del autómata celular
-  void loadInitialConfiguration(std::vector<char>);
-  void nextGeneration();
+    // Conocer poblacion
+    std::size_t Population() const;
 
-  // Sobrecarga del operador <<
-  friend std::ostream& operator<<(std::ostream&, const Lattice&);
+    // Condiciones de frontera
+    void noFrontier(int i, int j);
+    void periodicFrontier();
+    void openFrontier(const bool temp);
+    void removeBorders();
+
+    Cell& operator[](const Position& pos) const;
 
 private:
-  std::vector<Cell*> cells_;
-  int size_;
-  std::string frontera_;
+    int rows;                  // Ancho de la retícula
+    int cols;                 // Altura de la retícula
+    std::vector<std::vector<Cell*>> cells_;   // Vector de punteros a células
+    std::string frontera_;
 };
