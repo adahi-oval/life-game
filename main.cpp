@@ -1,106 +1,168 @@
+// Incluye las bibliotecas necesarias
 #include <iostream>
-#include <fstream>
 #include <string>
 #include "lattice.h"
+#include "cell.h"
 
-int main(int argc, char* argv[]) {
-  // Variables para almacenar los argumentos de línea de comandos
-  int size = 0;
-  std::string borderType;
-  std::string initFile = "";
+// Función para imprimir el uso del programa
+void printUsage() {
+  std::cout << "Uso: programa -size <M> <N> [-init <file>] -border <b>\n"
+            << "Donde:\n"
+            << "  <M>: Número de filas\n"
+            << "  <N>: Número de columnas\n"
+            << "  <file>: Nombre del archivo con los valores iniciales\n"
+            << "  <b>: Tipo de borde (periodic, noBorder, abiertaFria o abiertaCaliente)\n";
+}
 
-  // Procesar los argumentos de línea de comandos
-  for (int i = 1; i < argc; ++i) {
-    std::string arg = argv[i];
-
-    if (arg == "-size") {
-      if (i + 1 < argc) {
-        size = std::stoi(argv[++i]);
-      } else {
-        std::cerr << "Error: Se espera un valor después de -size." << std::endl;
-        return 1;
-      }
-    } 
-    
-    else if (arg == "-border") {
-      if (i + 1 < argc) {
-        borderType = argv[++i];
-
-        if (borderType == "open") {
-          if (i + 1 < argc) {
-            std::string v = argv[++i];
-            if (v != "0" && v != "1") {
-              std::cerr << "Error: Valor inválido para -v. Debe ser 0 o 1." << std::endl;
-              return 1;
-            }
-            if(v == "0") { borderType = "abiertaFria"; }
-            else if(v == "1") { borderType = "abiertaCaliente"; }
-          } else {
-            std::cerr << "Error: Se espera un valor después de -border open." << std::endl;
-            return 1;
-          }
-        } else if (borderType == "periodic") {
-          borderType = "periodic";
-        }
-      } else {
-        std::cerr << "Error: Se espera un tipo de frontera después de -border." << std::endl;
-        return 1;
-      }
-    } else if (arg == "-init") {
-      if (i + 1 < argc) {
-        initFile = argv[++i];
-      } else {
-        std::cerr << "Error: Se espera un nombre de archivo después de -init." << std::endl;
-        return 1;
-      }
-    }
-  }
-
-  // Verificar que se especificó el tamaño y el tipo de frontera
-  if (size == 0 || borderType.empty()) {
-    std::cerr << "Error: Debes especificar el tamaño y el tipo de frontera." << std::endl;
+int main(int argc, char *argv[]) {
+  if (argc < 5 || argc > 6) { // Verificar el número de argumentos
+    std::cerr << "Número incorrecto de argumentos.\n";
+    printUsage();
     return 1;
   }
 
-  // Crear el retículo del autómata celular
-  Lattice lattice(size, borderType);
-  std::vector<char> initialConfig;
+  std::string sizeFlag = "-size";
+  std::string initFlag = "-init";
+  std::string borderFlag = "-border";
+  std::string sizeFile;
+  std::string initFile;
+  std::string borderType;
 
-  // Cargar la configuración inicial si se proporciona un archivo
-  if (!initFile.empty()) {
-    std::ifstream file(initFile);
-    if (file.is_open()) {
-      std::string line;
-      if (std::getline(file, line)) {
-        for (char c : line){
-          if (c == '0' || c == '1')
-          {
-            initialConfig.push_back(c);
-          }
-          
-        }
+  bool hasSizeFlag = false;
+  bool hasBorderFlag = false;
+
+  //Lattice lattice(0,0); // Variable lattice declarada fuera de los bloques if
+
+  // Parsear los argumentos de la línea de comandos
+  for (int i = 1; i < argc; ++i) {
+    std::string arg = argv[i];
+    if (arg == sizeFlag) {
+      // Verificar que no se haya utilizado previamente el flag -size
+      if (hasSizeFlag) {
+        std::cerr << "Error: El flag -size ya ha sido especificado.\n";
+        printUsage();
+        return 1;
+      }
+      // Obtener el tamaño del tablero
+      if (i + 2 < argc) {
+        sizeFile = argv[i + 1];
+        initFile = argv[i + 2];
+        i += 2;
+        hasSizeFlag = true;
       } else {
-        std::cerr << "Error: El archivo de inicialización está vacío." << std::endl;
+        std::cerr << "Error: Se esperaban dos argumentos después de -size.\n";
+        printUsage();
+        return 1;
+      }
+    } else if (arg == initFlag) {
+
+      if (hasSizeFlag) {
+        std::cerr << "Error: El flag -size ya ha sido especificado.\n";
+        printUsage();
+        return 1;
+      }
+      
+      // Obtener el nombre del archivo de inicialización
+      if (i + 1 < argc) {
+        initFile = argv[i + 1];
+        ++i;
+      } else {
+        std::cerr << "Error: Se esperaba un argumento después de -init.\n";
+        printUsage();
+        return 1;
+      }
+    } else if (arg == borderFlag) {
+      // Verificar que no se haya utilizado previamente el flag -border
+      if (hasBorderFlag) {
+        std::cerr << "Error: El flag -border ya ha sido especificado.\n";
+        printUsage();
+        return 1;
+      }
+      // Obtener el tipo de borde
+      if (i + 1 < argc) {
+        borderType = argv[i + 1];
+        if (borderType != "periodic" && borderType != "noBorder" && borderType != "abiertaFria" && borderType != "abiertaCaliente") // Utiliza && en lugar de ||
+        {
+          std::cerr << "Error: Tipo de borde no válido.\n";
+          printUsage();
+          return 1;
+        }
+        ++i;
+        hasBorderFlag = true;
+      } else {
+        std::cerr << "Error: Se esperaba un argumento después de -border.\n";
+        printUsage();
         return 1;
       }
     } else {
-      std::cerr << "Error: No se pudo abrir el archivo de inicialización." << std::endl;
+      std::cerr << "Error: Argumento desconocido '" << arg << "'.\n";
+      printUsage();
       return 1;
     }
-  } else {
-    // Usar la configuración inicial por defecto
-    lattice.loadInitialConfiguration(initialConfig);
   }
-
-  // Simular la evolución del autómata celular
+  /*
+  if (hasSizeFlag) // si se ejecuta con size, initFile es las columnas
+  {
+    std::cout << sizeFile << std::endl << initFile << std::endl;
+    lattice = Lattice(std::stoi(sizeFile), std::stoi(initFile)); // Asigna el valor de lattice aquí
+  } else // si se ejecuta con init, initFile es el filename
+  {
+    lattice = Lattice(initFile.c_str()); // Asigna el valor de lattice aquí
+  }
+  */
+  // Lattice lattice(std::stoi(sizeFile),std::stoi(initFile));
+  Lattice lattice(initFile.c_str());
+  lattice.setFrontera(borderType);
   char stopChar;
-  do {
-    std::cout << lattice << std::endl; // Mostrar la configuración actual
-    lattice.nextGeneration(); // Pasar a la siguiente generación
-    
-    std::cout << "Presiona 'q' para salir o cualquier otra tecla para continuar: ";
+  std::string targetFile;
+  std::cout << lattice << std:: endl;
+  do
+  { 
+    std::cout << "Presiona 'x' para salir, o cualquiera de estas otras teclas para seleccionar opción: " << std::endl;
+    std::cout << "'n' - Siguiente generación" << std::endl;
+    std::cout << "'L' - Siguientes cinco generaciones" << std::endl;
+    std::cout << "'c' - Modo población" << std::endl;
+    std::cout << "'s' - Guarde el tablero actual a un fichero" << std::endl;
     std::cin >> stopChar;
-  } while (stopChar != 'q');
+    std::cout << std::endl;
+
+    // Ejecutar opción
+    if (stopChar == 'n')
+    {
+      lattice.nextGeneration();
+    } else if (stopChar == 'L')
+    {
+      for (int i = 0; i < 5; i++)
+      {
+        lattice.nextGeneration();
+      }
+    } else if (stopChar == 's')
+    {
+      std::cout << "Escriba el nombre del archivo de salida:" << std::endl;
+      std::cin >> targetFile;
+      lattice.saveToFile(targetFile.c_str());
+      std::cout << "Desea continuar?(s/n)" << std::endl;
+      std::cin >> stopChar;
+      if (stopChar == 's')
+      {
+        lattice.nextGeneration();
+      } else
+      {
+        break;
+      }
+    } else if (stopChar == 'x')
+    {
+      break;
+    } else if (stopChar == 'c')
+    {
+      lattice.setPopMode(true); // entra en popmode
+    } else
+    {
+      std::cout << "Ingrese una opción válida: " << std::endl;
+      std::cin >> stopChar;
+    }
+  } while (stopChar != 'x');
+  
 
   return 0;
 }

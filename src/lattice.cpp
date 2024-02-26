@@ -6,6 +6,7 @@ Lattice::Lattice(int N, int M) {
 
   rows = N;
   cols = M;
+  popMode = false;
 
   // Crear las células en memoria dinámica y establecer su estado inicial a "muerta" (false)
   for (int i = 0; i < N; ++i) {
@@ -22,21 +23,33 @@ Lattice::Lattice(int N, int M) {
 
 // Constructor por archivo
 Lattice::Lattice(const char* filename) {
+
+  popMode = false;
+
   std::ifstream file(filename);
-  if (!file) {
+  if (!file.is_open()) {
     std::cerr << "Error: No se pudo abrir el archivo " << filename << std::endl;
     return;
   }
 
   // Leer las dimensiones de la retícula del archivo
   file >> rows >> cols;
+  file.ignore(std::numeric_limits<std::streamsize>::max(), '\n'); // Ignorar el resto de la línea para mover el puntero al inicio de la próxima línea
+
   // Reservar espacio para las células
   cells_.resize(rows, std::vector<Cell*>(cols));
 
   // Leer las cadenas de caracteres del archivo para inicializar las células
   for (int i = 0; i < rows; ++i) {
     std::string rowString;
-    file >> rowString;
+    std::getline(file, rowString); // Leer la línea completa, incluidos los espacios en blanco
+
+    // Verificar que la longitud de la cadena sea igual al número de columnas
+    if (rowString.length() != cols) {
+      std::cerr << "Error: La longitud de la fila no coincide con el número de columnas especificado." << std::endl;
+      return;
+    }
+
     for (int j = 0; j < cols; ++j) {
       // Crear una célula viva si el carácter es 'X', de lo contrario, crear una célula muerta
       bool isAlive = (rowString[j] == 'X');
@@ -49,6 +62,8 @@ Lattice::Lattice(const char* filename) {
 }
 
 
+
+
 // Destructor de Lattice
 Lattice::~Lattice() {
   // Liberar la memoria de las células
@@ -59,6 +74,14 @@ Lattice::~Lattice() {
   }
 }
 
+int Lattice::getRows() const {
+  return rows;
+}
+
+int Lattice::getCols() const {
+  return cols;
+}
+
 // getter frontera
 std::string Lattice::getFrontera() const {
     return frontera_;
@@ -67,6 +90,16 @@ std::string Lattice::getFrontera() const {
 // setter frontera
 void Lattice::setFrontera(const std::string& frontera) {
     frontera_ = frontera;
+}
+
+// getter popmode
+bool Lattice::getPopMode() const {
+  return popMode;
+}
+
+// setter popmode
+void Lattice::setPopMode(bool b) {
+  popMode = b;
 }
 
 // Método privado para solicitar por teclado las posiciones de las células vivas en la configuración inicial
@@ -106,68 +139,88 @@ void Lattice::askForLiveCells() {
 
 // Implementación del método para calcular la población actual (número de células vivas)
 std::size_t Lattice::Population() const {
-    std::size_t aliveCount = 0;
-    for (const auto& row : cells_) {
-        for (const auto& cell : row) {
-            if (cell->getState()) { // Si el estado de la célula es verdadero (viva)
-                ++aliveCount;
-            }
-        }
+  std::size_t aliveCount = 0;
+  for (const auto& row : cells_) {
+    for (const auto& cell : row) {
+      if (cell->getState()) { // Si el estado de la célula es verdadero (viva)
+        ++aliveCount;
+      }
     }
-    return aliveCount;
+  }
+  return aliveCount;
 }
 
 // Sobrecarga del operador [] para acceder a las células por su posición en el retículo
 Cell& Lattice::operator[](const Position& pos) const {
-    // Obtener las coordenadas de la posición
-    int x = pos.first;
-    int y = pos.second;
+  // Obtener las coordenadas de la posición
+  int x = pos.first;
+  int y = pos.second;
 
-    // Verificar que las coordenadas estén dentro de los límites del retículo
-    if (x >= 0 && x < rows && y >= 0 && y < cols) {
-        // Devolver la referencia a la célula en la posición dada
-        return *cells_[x][y];
-    } else {
-        // Si las coordenadas están fuera de los límites, lanzar una excepción o devolver una referencia nula
-        // Aquí se elige lanzar una excepción
-        throw std::out_of_range("Posición fuera de los límites del retículo.");
+  // Verificar que las coordenadas estén dentro de los límites del retículo
+  if (x >= 0 && x < rows && y >= 0 && y < cols) {
+    // Devolver la referencia a la célula en la posición dada
+    return *cells_[x][y];
+  } else {
+    // Si las coordenadas están fuera de los límites, lanzar una excepción o devolver una referencia nula
+    // Aquí se elige lanzar una excepción
+    throw std::out_of_range("Posición fuera de los límites del retículo.");
+  }
+}
+
+// Metodo para actualizar las posiciones
+void Lattice::updatePositions() {
+  for (int i = 0; i < rows; ++i) {
+    for (int j = 0; j < cols; ++j) {
+      this->cells_[i][j]->setPosition(i,j);
     }
+  }
+}
+
+void Lattice::updateStates() {
+  for (int i = 0; i < rows; i++)
+  {
+    for (int j = 0; j < cols; j++)
+    {
+      this->cells_[i][j]->updateState();
+    }
+  }
 }
 
 // Condicion abierta, temp es si caliente o fria (true o false)
 void Lattice::openFrontier(const bool temp) {
+  Position pos(0,0);
   // Añadir columnas a los lados con células en el estado dado
   for (int i = 0; i < rows; ++i) {
+    Cell* auxCell1 = new Cell(pos, temp);
+    Cell* auxCell2 = new Cell(pos, temp);
     // Izquierda
-    cells_[i].insert(cells_[i].begin(), new Cell(std::make_pair(i, 0), temp));
+    cells_[i].insert(cells_[i].begin(), auxCell1);
     // Derecha
-    cells_[i].push_back(new Cell(std::make_pair(i, cols), temp));
+    cells_[i].push_back(auxCell2);
   }
   cols += 2; // Se añaden dos columnas nuevas
 
   // Añadir filas arriba y abajo con células en el estado dado
   // Fila arriba
-  cells_.insert(cells_.begin(), std::vector<Cell*>(cols, new Cell(std::make_pair(0, 0), temp)));
+  std::vector<Cell*> upRow;
+  for (int i = 0; i < cols; i++)
+  {
+    upRow.push_back(new Cell(std::make_pair(0,0), temp));
+  }
+  cells_.insert(cells_.begin(), upRow);
+  
   // Fila abajo
-  cells_.push_back(std::vector<Cell*>(cols, new Cell(std::make_pair(rows, 0), temp)));
+  std::vector<Cell*> downRow;
+  for (int i = 0; i < cols; i++)
+  {
+    downRow.push_back(new Cell(std::make_pair(0,0), temp));
+  }
+  cells_.push_back(downRow);
   rows += 2; // Se añaden dos filas nuevas
 
-  // Ajustar las esquinas
-  // Esquina superior izquierda
-  cells_[0].insert(cells_[0].begin(), new Cell(std::make_pair(0, 0), temp));
-  // Esquina superior derecha
-  cells_[0].push_back(new Cell(std::make_pair(0, cols), temp));
-  // Esquina inferior izquierda
-  cells_[rows - 1].insert(cells_[rows - 1].begin(), new Cell(std::make_pair(rows, 0), temp));
-  // Esquina inferior derecha
-  cells_[rows - 1].push_back(new Cell(std::make_pair(rows, cols), temp));
-
   // Ajustar las posiciones de las células existentes
-  for (int i = 0; i < rows; ++i) {
-    for (int j = 0; j < cols; ++j) {
-      cells_[i][j]->setPosition(i, j);
-    }
-  }
+  this->updatePositions();
+
 }
 
 // Condicion de frontera periodica
@@ -178,34 +231,42 @@ void Lattice::periodicFrontier() {
   // Expansión hacia los lados
   for (int i = 0; i < rows; ++i) {
     // Izquierda
-    cells_[i].insert(cells_[i].begin(), tempCells[i][cols - 1]);
+    cells_[i].insert(cells_[i].begin(), new Cell(std::make_pair(0,0), tempCells[i][cols - 1]->getState()));
     // Derecha
-    cells_[i].push_back(tempCells[i][0]);
+    cells_[i].push_back(new Cell(std::make_pair(0,0),tempCells[i][0]->getState()));
   }
-  cols += 2; // Se añaden dos columnas nuevas
 
-  // Expansión hacia arriba y abajo
-  // Expansión hacia arriba con una copia de la última fila
-  cells_.insert(cells_.begin(), tempCells[rows - 1]);
-  // Expansión hacia abajo con una copia de la primera fila
-  cells_.push_back(tempCells[0]);
-  ++rows; // Se añaden dos filas nuevas
+  std::vector<Cell*> upRow;
+  for (int i = 0; i < cols; i++)
+  {
+    upRow.push_back(new Cell(std::make_pair(0,0), tempCells[0][i]->getState()));
+  }
+  cells_.insert(cells_.begin(), upRow);
+  
+  // Fila abajo
+  std::vector<Cell*> downRow;
+  for (int i = 0; i < cols; i++)
+  {
+    downRow.push_back(new Cell(std::make_pair(0,0), tempCells[rows - 1][i]->getState()));
+  }
+  cells_.push_back(downRow);
 
-  // Esquina superior izquierda
-  cells_[0].insert(cells_[0].begin(), tempCells[rows - 1][cols - 1]);
-  // Esquina superior derecha
-  cells_[0].push_back(tempCells[rows - 1][0]);
-  // Esquina inferior izquierda
-  cells_[rows - 1].insert(cells_[rows - 1].begin(), tempCells[0][cols - 1]);
-  // Esquina inferior derecha
-  cells_[rows - 1].push_back(tempCells[0][0]);
+  // Esquinas
+  // arriba izquierda
+  cells_[0].insert(cells_[0].begin(), new Cell(std::make_pair(0,0), tempCells[rows - 1][cols - 1]->getState()));
+  // arriba derecha
+  cells_[0].push_back(new Cell(std::make_pair(0,0), tempCells[rows - 1][0]->getState()));
+  
+  rows += 2;
+  // abajo derecha
+  cells_[rows - 1].push_back(new Cell(std::make_pair(0,0), tempCells[0][0]->getState()));
+  // abajo izquierda
+  cells_[rows - 1].insert(cells_[rows - 1].begin(), new Cell(std::make_pair(0,0), tempCells[0][cols - 1]->getState()));
+
+  cols += 2;
 
   // Ajustar las posiciones de las células existentes
-  for (int i = 0; i < rows; ++i) {
-    for (int j = 0; j < cols; ++j) {
-      cells_[i][j]->setPosition(i, j);
-    }
-  }
+  this->updatePositions();
 }
 
 // Expand lattice para sin frontera
@@ -216,69 +277,65 @@ void Lattice::noFrontier(int row, int col) {
   // Esquinas
   if (row == 0 && col == 0) {
     // Esquina superior izquierda
-    // Insertar una nueva fila en la parte superior
-    for (int i = 0; i < cols; ++i) {
-      cells_[0].insert(cells_[0].begin(), new Cell(std::make_pair(0, 0), false)); // Agregar al principio
-    }
-    ++rows;
-
-    // Ajustar las posiciones de todas las células existentes en las filas
-    for (int i = 1; i < rows; ++i) {
-      for (int j = 0; j < cols; ++j) {
-        cells_[i][j]->setPosition(i, j);
-      }
-    }
-
     // Insertar una nueva columna en el lado izquierdo
     for (int i = 0; i < rows; ++i) {
       cells_[i].insert(cells_[i].begin(), new Cell(std::make_pair(i, 0), false)); // Agregar al principio
     }
     ++cols;
 
+    // Insertar una nueva fila en la parte superior
+    cells_.insert(cells_.begin(), std::vector<Cell*>(cols, new Cell(std::make_pair(rows, cols), false))); // Agregar al principio
+    ++rows;
+
     // Ajustar las posiciones de todas las células existentes en las columnas
-    for (int i = 0; i < rows; ++i) {
-      for (int j = 1; j < cols; ++j) {
-        cells_[i][j]->setPosition(i, j);
-      }
-    }
+    this->updatePositions();
+
   } else if (row == 0 && col == cols - 1) {
     // Esquina superior derecha
-    // Insertar una nueva fila en la parte superior
-    for (int i = 0; i < cols; ++i) {
-      cells_[0].push_back(new Cell(std::make_pair(0, cols), false)); // Agregar al final
+    // Columna por la parte derecha
+    for (int i = 0; i < rows; ++i) {
+      cells_[i].push_back(new Cell(std::make_pair(0, 0), false)); // Agregar al final
     }
+    ++cols;
+
+    // Insertar una nueva fila en la parte superior
+    cells_.insert(cells_.begin(), std::vector<Cell*>(cols, new Cell(std::make_pair(rows, cols), false))); // Agregar al principio
     ++rows;
 
     // Ajustar las posiciones de todas las células existentes en las filas
-    for (int i = 1; i < rows; ++i) {
-      for (int j = 0; j < cols; ++j) {
-        cells_[i][j]->setPosition(i, j);
-      }
-    }
+    this->updatePositions();
+
   } else if (row == rows - 1 && col == 0) {
     // Esquina inferior izquierda
+    // Insertar una nueva columna en el lado izquierdo
+    for (int i = 0; i < rows; ++i) {
+      cells_[i].insert(cells_[i].begin(), new Cell(std::make_pair(i, 0), false)); // Agregar al principio
+    }
+    ++cols;
+    
     // Insertar una nueva fila en la parte inferior
     cells_.push_back(std::vector<Cell*>(cols, new Cell(std::make_pair(rows, 0), false)));
     ++rows;
 
-    // Insertar una nueva columna en el lado izquierdo
+    // Ajustar las posiciones de todas las células existentes en las columnas
+    this->updatePositions();
+
+  } else if (row == rows - 1 && col == cols - 1) {
+    // Esquina inferior derecha
+
+    // Columna por la parte derecha
     for (int i = 0; i < rows; ++i) {
-      cells_[i].insert(cells_[i].begin(), new Cell(std::make_pair(i, 0), false)); // Agregar al principio
+      cells_[i].push_back(new Cell(std::make_pair(0, 0), false)); // Agregar al final
     }
     ++cols;
 
-    // Ajustar las posiciones de todas las células existentes en las columnas
-    for (int i = 0; i < rows; ++i) {
-      for (int j = 1; j < cols; ++j) {
-        cells_[i][j]->setPosition(i, j);
-      }
-    }
-  } else if (row == rows - 1 && col == cols - 1) {
-    // Esquina inferior derecha
-    // Insertar una nueva fila en la parte inferior
+    // fila parte inferior
     cells_.push_back(std::vector<Cell*>(cols, new Cell(std::make_pair(rows, cols), false)));
     ++rows;
-    ++cols;
+
+    // Actualizar posiciones
+    this->updatePositions();
+
   }
   else if (row == 0) {
     // Expansión hacia arriba
@@ -287,16 +344,17 @@ void Lattice::noFrontier(int row, int col) {
     ++rows;
 
     // Ajustar las posiciones de todas las células existentes en las filas
-    for (int i = 1; i < rows; ++i) {
-      for (int j = 0; j < cols; ++j) {
-        cells_[i][j]->setPosition(i, j);
-      }
-    }
+    this->updatePositions();
+
   } else if (row == rows - 1) {
     // Expansión hacia abajo
     // Insertar una nueva fila de células muertas en la parte inferior
     cells_.push_back(std::vector<Cell*>(cols, new Cell(std::make_pair(rows, 0), false)));
     ++rows;
+    
+    // Actualizar posicion
+    this->updatePositions();
+
   } 
   else if (col == 0) {
     // Expansión hacia la izquierda
@@ -307,11 +365,8 @@ void Lattice::noFrontier(int row, int col) {
     ++cols;
 
     // Ajustar las posiciones de todas las células existentes en las columnas
-    for (int i = 0; i < rows; ++i) {
-      for (int j = 1; j < cols; ++j) {
-        cells_[i][j]->setPosition(i, j);
-      }
-    }
+    this->updatePositions();
+
   } else if (col == cols - 1) {
     // Expansión hacia la derecha
     // Insertar una nueva columna de células muertas en el lado derecho
@@ -319,6 +374,9 @@ void Lattice::noFrontier(int row, int col) {
       cells_[i].push_back(new Cell(std::make_pair(i, cols), false)); // Agregar al final
     }
     ++cols;
+
+    this->updatePositions();
+
   }
 }
 
@@ -337,9 +395,130 @@ void Lattice::removeBorders() {
   rows -= 2; // Se eliminan dos filas
 
   // Restaurar las posiciones de las células existentes
+  this->updatePositions();
+}
+
+
+// Calculo de la siguiente generación
+void Lattice::nextGeneration() {
+  if (this->getFrontera() == "abiertaFria")
+  {
+
+    this->openFrontier(false); // expande el lattice con celulas tipo false
+    for (int i = 1; i < this->getRows() - 1; i++)
+    {
+      for (int j = 1; j < this->getCols() - 1; j++)
+      {
+        std::vector<Cell> neighbors = this->cells_[i][j]->getNeighbors(*this); // vecinos de cada celula
+        State nextState = this->cells_[i][j]->transitionFunction(neighbors); // estado siguiente segun funcion transic.
+        this->cells_[i][j]->setNextState(nextState);
+      }
+    }
+    this->updateStates();
+    this->removeBorders(); // volver al tamaño original
+    
+    
+  } else if (this->getFrontera() == "abiertaCaliente")
+  {
+    this->openFrontier(true); // expande el lattice con celulas tipo true
+    for (int i = 1; i < this->getRows() - 1; i++)
+    {
+      for (int j = 1; j < this->getCols() - 1; j++)
+      {
+        std::vector<Cell> neighbors = this->cells_[i][j]->getNeighbors(*this); // vecinos de cada celula
+        State nextState = this->cells_[i][j]->transitionFunction(neighbors); // estado siguiente segun funcion transic.
+        this->cells_[i][j]->setNextState(nextState);
+      }
+    }
+    this->updateStates();
+    this->removeBorders(); // volver al tamaño original
+    
+
+  } else if (this->getFrontera() == "periodic")
+  {
+
+    this->periodicFrontier(); // expande el lattice con frontera periodica
+    for (int i = 1; i < this->getRows() - 1; i++)
+    {
+      for (int j = 1; j < this->getCols() - 1; j++)
+      {
+        std::vector<Cell> neighbors = this->cells_[i][j]->getNeighbors(*this); // vecinos de cada celula
+        State nextState = this->cells_[i][j]->transitionFunction(neighbors); // estado siguiente segun funcion transic.
+        this->cells_[i][j]->setNextState(nextState);
+      }
+    }
+    this->updateStates();
+    this->removeBorders(); // volver al tamaño original
+    
+
+  } else if (this->getFrontera() == "noBorder") {
+
+    for (int i = 0; i < this->getRows(); i++)
+    {
+      for (int j = 0; j < this->getCols(); j++)
+      {
+        std::vector<Cell> neighbors = this->cells_[i][j]->getNeighbors(*this); // vecinos de cada celula
+        State nextState = this->cells_[i][j]->transitionFunction(neighbors); // estado siguiente segun funcion transic.
+        this->cells_[i][j]->setNextState(nextState);
+      }
+    }
+    this->updateStates();
+    for (int i = 0; i < this->getRows(); i++)
+    {
+      for (int j = 0; j < this->getCols(); j++)
+      {
+        if (this->cells_[i][j]->getState())
+        {
+          this->noFrontier(i,j);
+        }
+      }
+    }
+    
+    
+  }
+  if (this->getPopMode())
+  {
+    std::cout << "Número de células vivas: " << this->Population() << std::endl << std::endl;
+  } else
+  {
+    std::cout << *this << std::endl << std::endl; // sacar por pantalla
+  }
+  
+}
+
+// sobrecarga operador<<
+std::ostream& operator<<(std::ostream& os, const Lattice& lattice) {
+  for (int i = 0; i < lattice.getRows(); i++)
+  {
+    for (int j = 0; j < lattice.getCols(); j++)
+    {
+      os << lattice[std::make_pair(i,j)];
+    }
+    os << std::endl;
+  }
+
+  return os;
+}
+
+// guardar en archivo
+void Lattice::saveToFile(const char* filename) const {
+  std::ofstream file(filename);
+  if (!file.is_open()) {
+    std::cerr << "Error: No se pudo abrir el archivo " << filename << std::endl;
+    return;
+  }
+
+  // Escribir las dimensiones del tablero
+  file << rows << " " << cols << std::endl;
+
+  // Escribir el estado de cada celda en el tablero
   for (int i = 0; i < rows; ++i) {
     for (int j = 0; j < cols; ++j) {
-      cells_[i][j]->setPosition(i, j);
+      file << (cells_[i][j]->getState() ? 'X' : ' ');
     }
+    file << std::endl;
   }
+
+  // Cerrar el archivo
+  file.close();
 }
