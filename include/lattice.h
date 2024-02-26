@@ -15,6 +15,7 @@ public:
     // Constructor que crea las células en memoria dinámica con valor inicial de estado muerta
     Lattice(int N, int M);
     Lattice(const char* filename);
+    Lattice(int once);
 
     // Destructor para liberar la memoria de las células
     ~Lattice();
@@ -57,6 +58,7 @@ public:
     // sobrecarga de operadores
     Cell& operator[](const Position& pos) const;
     friend std::ostream& operator<<(std::ostream& os, const Lattice& lattice);
+    Lattice& operator=(const Lattice& other);
 
 private:
     int rows;                  // Ancho de la retícula

@@ -61,8 +61,13 @@ Lattice::Lattice(const char* filename) {
   file.close();
 }
 
+Lattice::Lattice(int once) {
+  
+  rows = 1;
+  cols = 1;
+  popMode = false;
 
-
+}
 
 // Destructor de Lattice
 Lattice::~Lattice() {
@@ -521,4 +526,27 @@ void Lattice::saveToFile(const char* filename) const {
 
   // Cerrar el archivo
   file.close();
+}
+
+Lattice& Lattice::operator=(const Lattice& other) {
+    if (this == &other) {
+        return *this;
+    }
+
+    // Copiar las dimensiones y el modo de población
+    rows = other.rows;
+    cols = other.cols;
+    popMode = other.popMode;
+    frontera_ = other.frontera_;
+    std::vector<Cell*> cells;
+
+    // Copiar el estado de las células
+    for (int i = 0; i < rows; ++i) {
+        cells_.push_back(cells);
+        for (int j = 0; j < cols; ++j) {
+            cells_[i].push_back(new Cell(*other.cells_[i][j]));
+        }
+    }
+
+    return *this;
 }

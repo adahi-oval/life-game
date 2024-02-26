@@ -31,7 +31,7 @@ int main(int argc, char *argv[]) {
   bool hasSizeFlag = false;
   bool hasBorderFlag = false;
 
-  //Lattice lattice(0,0); // Variable lattice declarada fuera de los bloques if
+  Lattice lattice(1);
 
   // Parsear los argumentos de la línea de comandos
   for (int i = 1; i < argc; ++i) {
@@ -100,18 +100,17 @@ int main(int argc, char *argv[]) {
       return 1;
     }
   }
-  /*
-  if (hasSizeFlag) // si se ejecuta con size, initFile es las columnas
+
+  if (hasSizeFlag)
   {
-    std::cout << sizeFile << std::endl << initFile << std::endl;
-    lattice = Lattice(std::stoi(sizeFile), std::stoi(initFile)); // Asigna el valor de lattice aquí
-  } else // si se ejecuta con init, initFile es el filename
+    Lattice lattice2(std::stoi(sizeFile), std::stoi(initFile));
+    lattice = lattice2;
+  } else
   {
-    lattice = Lattice(initFile.c_str()); // Asigna el valor de lattice aquí
+    Lattice lattice2(initFile.c_str());
+    lattice = lattice2;
   }
-  */
-  // Lattice lattice(std::stoi(sizeFile),std::stoi(initFile));
-  Lattice lattice(initFile.c_str());
+  
   lattice.setFrontera(borderType);
   char stopChar;
   std::string targetFile;
